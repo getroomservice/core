@@ -64,98 +64,34 @@
 	<div class="row">
 		<div class="col-8 col-content">
 			<div class="tsd-panel tsd-typography">
-				<a href="#tsdx-user-guide" id="tsdx-user-guide" style="color: inherit; text-decoration: none;">
-					<h1>TSDX User Guide</h1>
+				<a href="#core" id="core" style="color: inherit; text-decoration: none;">
+					<h1>Core</h1>
 				</a>
-				<p>Congrats! You just saved yourself hours of work by bootstrapping this project with TSDX. Let’s get you oriented with what’s here and how to use it.</p>
-				<blockquote>
-					<p>This TSDX setup is meant for developing libraries (not apps!) that can be published to NPM. If you’re looking to build a Node app, you could use <code>ts-node-dev</code>, plain <code>ts-node</code>, or simple <code>tsc</code>.</p>
-				</blockquote>
-				<blockquote>
-					<p>If you’re new to TypeScript, checkout <a href="https://devhints.io/typescript">this handy cheatsheet</a></p>
-				</blockquote>
-				<a href="#commands" id="commands" style="color: inherit; text-decoration: none;">
-					<h2>Commands</h2>
+				<p>This is the core logic for the browser, react, and node clients.</p>
+				<a href="#interpretters" id="interpretters" style="color: inherit; text-decoration: none;">
+					<h2>Interpretters</h2>
 				</a>
-				<p>TSDX scaffolds your new library inside <code>/src</code>.</p>
-				<p>To run TSDX, use:</p>
-				<pre><code class="language-bash">npm start <span class="hljs-comment"># or yarn start</span></code></pre>
-				<p>This builds to <code>/dist</code> and runs the project in watch mode so any edits you save inside <code>src</code> causes a rebuild to <code>/dist</code>.</p>
-				<p>To do a one-off build, use <code>npm run build</code> or <code>yarn build</code>.</p>
-				<p>To run tests, use <code>npm test</code> or <code>yarn test</code>.</p>
-				<a href="#configuration" id="configuration" style="color: inherit; text-decoration: none;">
-					<h2>Configuration</h2>
+				<p>The Core exposes &quot;interpreters&quot; that are responsible for maintaining an object&#39;s state through commands.</p>
+				<a href="#example-mapinterpreter" id="example-mapinterpreter" style="color: inherit; text-decoration: none;">
+					<h3>Example: MapInterpreter</h3>
 				</a>
-				<p>Code quality is set up for you with <code>prettier</code>, <code>husky</code>, and <code>lint-staged</code>. Adjust the respective fields in <code>package.json</code> accordingly.</p>
-				<a href="#jest" id="jest" style="color: inherit; text-decoration: none;">
-					<h3>Jest</h3>
-				</a>
-				<p>Jest tests are set up to run with <code>npm test</code> or <code>yarn test</code>.</p>
-				<a href="#bundle-analysis" id="bundle-analysis" style="color: inherit; text-decoration: none;">
-					<h3>Bundle Analysis</h3>
-				</a>
-				<p><a href="https://github.com/ai/size-limit"><code>size-limit</code></a> is set up to calculate the real cost of your library with <code>npm run size</code> and visualize the bundle with <code>npm run analyze</code>.</p>
-				<a href="#setup-files" id="setup-files" style="color: inherit; text-decoration: none;">
-					<h4>Setup Files</h4>
-				</a>
-				<p>This is the folder structure we set up for you:</p>
-				<pre><code class="language-txt">/src
-  index.tsx       # EDIT THIS
-/test
-  blah.test.tsx   # EDIT THIS
-.gitignore
-package.json
-README.md         # EDIT THIS
-tsconfig.json</code></pre>
-				<a href="#rollup" id="rollup" style="color: inherit; text-decoration: none;">
-					<h3>Rollup</h3>
-				</a>
-				<p>TSDX uses <a href="https://rollupjs.org">Rollup</a> as a bundler and generates multiple rollup configs for various module formats and build settings. See <a href="#optimizations">Optimizations</a> for details.</p>
-				<a href="#typescript" id="typescript" style="color: inherit; text-decoration: none;">
-					<h3>TypeScript</h3>
-				</a>
-				<p><code>tsconfig.json</code> is set up to interpret <code>dom</code> and <code>esnext</code> types, as well as <code>react</code> for <code>jsx</code>. Adjust according to your needs.</p>
-				<a href="#continuous-integration" id="continuous-integration" style="color: inherit; text-decoration: none;">
-					<h2>Continuous Integration</h2>
-				</a>
-				<a href="#github-actions" id="github-actions" style="color: inherit; text-decoration: none;">
-					<h3>GitHub Actions</h3>
-				</a>
-				<p>Two actions are added by default:</p>
-				<ul>
-					<li><code>main</code> which installs deps w/ cache, lints, tests, and builds on all pushes against a Node and OS matrix</li>
-					<li><code>size</code> which comments cost comparison of your library on every pull request using <a href="https://github.com/ai/size-limit"><code>size-limit</code></a></li>
-				</ul>
-				<a href="#optimizations" id="optimizations" style="color: inherit; text-decoration: none;">
-					<h2>Optimizations</h2>
-				</a>
-				<p>Please see the main <code>tsdx</code> <a href="https://github.com/palmerhq/tsdx#optimizations">optimizations docs</a>. In particular, know that you can take advantage of development-only optimizations:</p>
-				<pre><code class="language-js"><span class="hljs-comment">// ./types/index.d.ts</span>
-declare <span class="hljs-keyword">var</span> __DEV__: boolean;
+				<pre><code class="language-ts"><span class="hljs-keyword">import</span> { MapInterpreter } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@roomservice/core&#x27;</span>;
 
-<span class="hljs-comment">// inside your code...</span>
-<span class="hljs-keyword">if</span> (__DEV__) {
-  <span class="hljs-built_in">console</span>.log(<span class="hljs-string">&#x27;foo&#x27;</span>);
-}</code></pre>
-				<p>You can also choose to install and use <a href="https://github.com/palmerhq/tsdx#invariant">invariant</a> and <a href="https://github.com/palmerhq/tsdx#warning">warning</a> functions.</p>
-				<a href="#module-formats" id="module-formats" style="color: inherit; text-decoration: none;">
-					<h2>Module Formats</h2>
-				</a>
-				<p>CJS, ESModules, and UMD module formats are supported.</p>
-				<p>The appropriate paths are configured in <code>package.json</code> and <code>dist/index.js</code> accordingly. Please report if any issues are found.</p>
-				<a href="#named-exports" id="named-exports" style="color: inherit; text-decoration: none;">
-					<h2>Named Exports</h2>
-				</a>
-				<p>Per Palmer Group guidelines, <a href="https://github.com/palmerhq/typescript#exports">always use named exports.</a> Code split inside your React app instead of your React library.</p>
-				<a href="#including-styles" id="including-styles" style="color: inherit; text-decoration: none;">
-					<h2>Including Styles</h2>
-				</a>
-				<p>There are many ways to ship styles, including with CSS-in-JS. TSDX has no opinion on this, configure how you like.</p>
-				<p>For vanilla CSS, you can include it at the root directory and add it to the <code>files</code> section in your <code>package.json</code>, so that it can be imported separately by your users and run through their bundler&#39;s loader.</p>
-				<a href="#publishing-to-npm" id="publishing-to-npm" style="color: inherit; text-decoration: none;">
-					<h2>Publishing to NPM</h2>
-				</a>
-				<p>We recommend using <a href="https://github.com/sindresorhus/np">np</a>.</p>
+<span class="hljs-comment">// ~~ Create a new list! ~~</span>
+<span class="hljs-keyword">const</span> {
+  <span class="hljs-comment">// The `mcreate` command responsible for creating this list</span>
+  cmd,
+  <span class="hljs-comment">// An in-memory representation of the list</span>
+  store,
+  <span class="hljs-comment">// Metadata associated with the list</span>
+  meta,
+} = MapInterpreter.newList(<span class="hljs-string">&#x27;doc&#x27;</span>, <span class="hljs-string">&#x27;map&#x27;</span>);
+
+<span class="hljs-comment">// Apply incoming commands</span>
+MapInterpreter.applyCommand(store, [<span class="hljs-string">&#x27;mput&#x27;</span>, <span class="hljs-string">&#x27;doc&#x27;</span>, <span class="hljs-string">&#x27;map&#x27;</span>, <span class="hljs-string">&#x27;key&#x27;</span>, <span class="hljs-string">&#x27;value&#x27;</span>]);
+
+<span class="hljs-comment">// Run functions and get the resulting commands</span>
+<span class="hljs-keyword">const</span> cmd = MapInterpreter.runSet(store, meta, <span class="hljs-string">&#x27;dogs&#x27;</span>, <span class="hljs-string">&#x27;cats&#x27;</span>);</code></pre>
 			</div>
 		</div>
 		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
@@ -165,7 +101,25 @@ declare <span class="hljs-keyword">var</span> __DEV__: boolean;
 						<a href="globals.html"><em>Globals</em></a>
 					</li>
 					<li class=" tsd-kind-module">
+						<a href="modules/_reversetree_.html">&quot;<wbr>Reverse<wbr>Tree&quot;</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/_escape_.html">&quot;escape&quot;</a>
+					</li>
+					<li class=" tsd-kind-module">
 						<a href="modules/_index_.html">&quot;index&quot;</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/_list_.html">&quot;list&quot;</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/_list_test_.html">&quot;list.test&quot;</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/_map_.html">&quot;map&quot;</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/_types_.html">&quot;types&quot;</a>
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/_versionstamp_.html">&quot;versionstamp&quot;</a>
@@ -187,8 +141,15 @@ declare <span class="hljs-keyword">var</span> __DEV__: boolean;
 		<h2>Legend</h2>
 		<div class="tsd-legend-group">
 			<ul class="tsd-legend">
+				<li class="tsd-kind-object-literal"><span class="tsd-kind-icon">Object literal</span></li>
 				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
 				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+				<li class="tsd-kind-function tsd-has-type-parameter"><span class="tsd-kind-icon">Function with type parameter</span></li>
+				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
+				<li class="tsd-kind-type-alias tsd-has-type-parameter"><span class="tsd-kind-icon">Type alias with type parameter</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-interface"><span class="tsd-kind-icon">Interface</span></li>
 			</ul>
 			<ul class="tsd-legend">
 				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
