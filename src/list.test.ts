@@ -88,8 +88,73 @@ test('lists.map()', () => {
   ]);
 });
 
-// describe('list.applyCommand', () => {
-//   test('lins', () => {
-//     const { store, meta } = ListInterpreter.newList('doc', 'list', 'act');
-//   });
-// });
+describe('list.applyCommand', () => {
+  test('lins', () => {
+    const { store } = ListInterpreter.newList('doc', 'list', 'act');
+
+    ListInterpreter.applyCommand(store, [
+      'lins',
+      'doc',
+      'list',
+      'root',
+      '0:bob',
+      '2',
+    ]);
+
+    expect(ListInterpreter.get<any>(store, 0)).toEqual(2);
+  });
+
+  test('ldel', () => {
+    const { store, meta } = ListInterpreter.newList('doc', 'list', 'act');
+
+    // ["dogs", "cats"]
+    ListInterpreter.runPush(store, meta, 'dogs', 'cats');
+
+    // delete "dogs"
+    ListInterpreter.applyCommand(store, ['ldel', 'doc', 'list', '0:act']);
+
+    // Expect ["cats"]
+    expect(ListInterpreter.get<any>(store, 0)).toEqual('cats');
+  });
+
+  test('lput', () => {
+    const { store, meta } = ListInterpreter.newList('doc', 'list', 'act');
+
+    ListInterpreter.runPush(store, meta, 'dogs', 'cats');
+    ListInterpreter.applyCommand(store, [
+      'lput',
+      'doc',
+      'list',
+      '0:act',
+      'snakes',
+    ]);
+
+    expect(ListInterpreter.get<any>(store, 0)).toEqual('snakes');
+  });
+});
+
+test('list.insertAfter()', () => {
+  const { store, meta } = ListInterpreter.newList('doc', 'list', 'act');
+
+  const insertAtCmd = ListInterpreter.runInsertAt(store, meta, 0, 'dogs');
+  expect(insertAtCmd).toEqual([
+    'lins',
+    'doc',
+    'list',
+    'root',
+    '0:act',
+    '"dogs"',
+  ]);
+
+  const insertAfterCmd = ListInterpreter.runInsertAfter(store, meta, 0, 'cats');
+  expect(insertAfterCmd).toEqual([
+    'lins',
+    'doc',
+    'list',
+    '0:act',
+    '1:act',
+    '"cats"',
+  ]);
+
+  expect(ListInterpreter.toArray(store)).toEqual(['dogs', 'cats']);
+});
