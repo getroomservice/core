@@ -1,6 +1,6 @@
 import { MapInterpreter, MapStore, MapMeta } from './map';
 
-test('MapInterpretter can set()', () => {
+test('MapInterpreter can set()', () => {
   const store: MapStore<any> = {};
   const meta: MapMeta = {
     docID: 'doc',
@@ -11,7 +11,7 @@ test('MapInterpretter can set()', () => {
   expect(cmd).toEqual(['mput', 'doc', 'map', 'dog', '"good"']);
 });
 
-test('MapInterpretter can delete()', () => {
+test('MapInterpreter can delete()', () => {
   const store: MapStore<any> = {
     snake: 'bad',
   };
@@ -24,7 +24,7 @@ test('MapInterpretter can delete()', () => {
   expect(cmd).toEqual(['mdel', 'doc', 'map', 'snake']);
 });
 
-test('MapInterpretter can validate a bad command', () => {
+test('MapInterpreter can validate a bad command', () => {
   const meta: MapMeta = {
     docID: 'doc',
     mapID: 'map',
@@ -35,10 +35,15 @@ test('MapInterpretter can validate a bad command', () => {
   }).toThrow();
 });
 
-test('MapInterpretter can delete()', () => {
+test('MapInterpreter can delete()', () => {
   const store: MapStore<any> = {
     snake: 'bad',
   };
   MapInterpreter.applyCommand(store, ['mdel', 'doc', 'map', 'snake']);
   expect(store['snake']).toBeFalsy();
+});
+
+test('MapInterpreter can create a new map', () => {
+  const cmd = MapInterpreter.newMap('doc', 'map').cmd;
+  expect(cmd).toEqual(['mcreate', 'doc', 'map']);
 });

@@ -17,8 +17,13 @@ interface Tree {
   valueById: Map<string, NodeValue>;
 }
 
-function parseItemID(checkpoint: DocumentCheckpoint, id: string): string {
-  if (id === 'root') return 'root';
+export function parseItemID(
+  checkpoint: DocumentCheckpoint,
+  id: string
+): string {
+  if (id === 'root') {
+    return 'root';
+  }
   let [index, a] = id.split(':');
   return index + ':' + checkpoint.actors[parseInt(a)];
 }

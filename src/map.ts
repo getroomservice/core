@@ -1,10 +1,33 @@
 import { unescape, escape } from './escape';
+import { DocumentCheckpoint } from './types';
 
 export type MapStore<T> = { [key: string]: number | string | object | T };
 export type MapMeta = {
   mapID: string;
   docID: string;
 };
+
+/**
+ * Populates the store with the values given from a bootstrap'd
+ * checkpoint, typically gotten from Room Service's API.
+ * @param store
+ * @param rawCheckpoint
+ */
+function importFromRawCheckpoint<T>(
+  store: MapStore<T>,
+  rawCheckpoint: DocumentCheckpoint,
+  mapID: string
+) {
+  if (!rawCheckpoint.maps[mapID]) {
+    return; // no import
+  }
+  for (let k in rawCheckpoint) {
+    const val = rawCheckpoint.maps[mapID][k];
+    if (typeof val === 'string') {
+      store[k] = unescape(val);
+    }
+  }
+}
 
 /**
  * Validates an incoming command. Throws an error
@@ -97,9 +120,34 @@ function runDelete<T>(
   return ['mdel', meta.docID, meta.mapID, key];
 }
 
+/**
+ * Returns the command to create a new map
+ * @param docID
+ * @param mapID
+ */
+function newMap<T extends any>(
+  docID: string,
+  mapID: string
+): {
+  store: MapStore<T>;
+  meta: MapMeta;
+  cmd: string[];
+} {
+  return {
+    cmd: ['mcreate', docID, mapID],
+    meta: {
+      docID,
+      mapID,
+    },
+    store: {},
+  };
+}
+
 export const MapInterpreter = {
   validateCommand,
   applyCommand,
+  newMap,
+  importFromRawCheckpoint,
   runSet,
   runDelete,
 };
