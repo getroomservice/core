@@ -32,7 +32,7 @@
     "singleQuote": true,
     "trailingComma": "es5"
   },
-  "name": "core",
+  "name": "@roomservice/core",
   "author": "Flaque",
   "module": "dist/core.esm.js",
   "size-limit": [
