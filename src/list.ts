@@ -44,6 +44,7 @@ function importFromRawCheckpoint(
   rawCheckpoint: DocumentCheckpoint,
   listID: string
 ) {
+  store.itemIDs = [];
   if (!rawCheckpoint.lists[listID]) {
     return; // no import
   }
