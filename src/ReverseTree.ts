@@ -54,6 +54,10 @@ export class ReverseTree {
   import(checkpoint: DocumentCheckpoint, listID: string) {
     invariant(checkpoint);
 
+    this.log = [];
+    this.nodes = {};
+    this.count = 0;
+
     const list = checkpoint.lists[listID];
     const afters = list.afters || [];
     const ids = list.ids || [];

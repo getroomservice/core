@@ -18,6 +18,10 @@ function importFromRawCheckpoint<T>(
   rawCheckpoint: DocumentCheckpoint,
   mapID: string
 ) {
+  for (const key of Object.keys(store)) {
+    delete store[key];
+  }
+
   if (!rawCheckpoint.maps[mapID]) {
     return; // no import
   }
