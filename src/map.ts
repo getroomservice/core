@@ -25,7 +25,7 @@ function importFromRawCheckpoint<T>(
   if (!rawCheckpoint.maps[mapID]) {
     return; // no import
   }
-  for (let k in rawCheckpoint) {
+  for (let k in rawCheckpoint.maps[mapID]) {
     const val = rawCheckpoint.maps[mapID][k];
     if (typeof val === 'string') {
       store[k] = unescape(val);
