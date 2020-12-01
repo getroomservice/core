@@ -59,10 +59,12 @@ function validateCommand(meta: MapMeta, cmd: string[]) {
 function applyCommand<T>(store: MapStore<T>, cmd: string[]) {
   const keyword = cmd[0];
 
+  const MALFORMED = 'Malformed command '
+
   switch (keyword) {
     case 'mput':
       if (cmd.length !== 5) {
-        console.error('Malformed command ', cmd);
+        console.error(MALFORMED, cmd);
         break;
       }
       const putKey = cmd[3];
@@ -71,11 +73,15 @@ function applyCommand<T>(store: MapStore<T>, cmd: string[]) {
       break;
     case 'mdel':
       if (cmd.length !== 4) {
-        console.error('Malformed command ', cmd);
+        console.error(MALFORMED, cmd);
         break;
       }
       const delKey = cmd[3];
       delete store[delKey];
+      break;
+    // These are technically "valid" in some places
+    // but can be ignored here
+    case 'mcreate':
       break;
     default:
       throw new Error('Unexpected command keyword: ' + keyword);

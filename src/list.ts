@@ -112,6 +112,10 @@ function applyCommand(store: ListStore, cmd: string[]) {
         1
       );
       break;
+    // These are technically "valid" in some places
+    // but can be ignored here
+    case 'lcreate':
+      break;
     default:
       throw new Error('Unexpected command keyword: ' + keyword);
   }
