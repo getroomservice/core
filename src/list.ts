@@ -188,7 +188,7 @@ function runInsertAt<T extends any>(
   val: T
 ): string[] {
   if (index < 0) {
-    throw 'Negative indices unsupported';
+    throw new Error('Negative indices unsupported');
   }
   let afterID: string;
   if (index === 0) {
