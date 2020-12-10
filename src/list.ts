@@ -187,7 +187,7 @@ function runInsertAt<T extends any>(
     throw 'Negative indices unsupported';
   }
   let afterID: string;
-  if (index == 0) {
+  if (index === 0) {
     afterID = 'root';
   } else {
     afterID = store.itemIDs[index - 1];
