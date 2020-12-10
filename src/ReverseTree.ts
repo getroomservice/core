@@ -51,8 +51,10 @@ export class ReverseTree {
     this.log = [];
   }
 
-  import(checkpoint: DocumentCheckpoint, listID: string) {
+  import(actor: string, checkpoint: DocumentCheckpoint, listID: string) {
     invariant(checkpoint);
+
+    this.actor = actor;
 
     this.log = [];
     this.nodes = {};

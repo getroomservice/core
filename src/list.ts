@@ -41,6 +41,7 @@ function newList(
  */
 function importFromRawCheckpoint(
   store: ListStore,
+  actor: string,
   rawCheckpoint: DocumentCheckpoint,
   listID: string
 ) {
@@ -49,7 +50,7 @@ function importFromRawCheckpoint(
     return; // no import
   }
 
-  store.rt.import(rawCheckpoint, listID);
+  store.rt.import(actor, rawCheckpoint, listID);
   const list = rawCheckpoint.lists[listID];
   const ids = list.ids || [];
   for (let i = 0; i < ids.length; i++) {
