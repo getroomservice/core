@@ -59,7 +59,7 @@ function validateCommand(meta: MapMeta, cmd: string[]) {
 function applyCommand<T>(store: MapStore<T>, cmd: string[]) {
   const keyword = cmd[0];
 
-  const MALFORMED = 'Malformed command '
+  const MALFORMED = 'Malformed command ';
 
   switch (keyword) {
     case 'mput':
