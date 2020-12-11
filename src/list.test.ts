@@ -32,6 +32,7 @@ test('list can import from checkpoint', () => {
   const { store } = ListInterpreter.newList('doc', 'list', 'actor');
   ListInterpreter.importFromRawCheckpoint(
     store,
+    'actor',
     checkpoint(
       'list',
       {
