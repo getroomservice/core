@@ -1,23 +1,13 @@
 /**
  * A tool to manipulate version stamps
  */
-class VersionStamper {
+export class VersionStamper {
   // Node and Browsers do this differently.
-  // On Node, it's Buffer.from("mystring").toString("base64")
+  // On Node, it's Buffer.from("mystring", "base64").toString("binary")
   // On Browsers, it's window.atob("mystring")
-  private stringToB64: (data: string) => string;
-  constructor(stringToB64: (data: string) => string) {
-    this.stringToB64 = stringToB64;
-  }
-
-  private base64toArrayBuffer(vs: string) {
-    var binary = this.stringToB64(vs);
-    var len = binary.length;
-    var bytes = new Uint8Array(len);
-    for (var i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
+  private b64Decode: (data: string) => string;
+  constructor(b64Decode: (data: string) => string) {
+    this.b64Decode = b64Decode;
   }
 
   /**
@@ -31,19 +21,14 @@ class VersionStamper {
     if (!older) return true;
     if (!newer) return false;
 
-    // These are ALWAYS 10 bytes
-    const olderArr = new Uint8Array(
-      this.base64toArrayBuffer(older).slice(0, 9)
-    );
-    const newerArr = new Uint8Array(
-      this.base64toArrayBuffer(newer).slice(0, 9)
-    );
+    older = this.b64Decode(older);
+    newer = this.b64Decode(newer);
 
-    for (let i = 0; i < olderArr.byteLength; i++) {
-      if (newerArr[i] > olderArr[i]) return true;
-      if (newerArr[i] < olderArr[i]) return false;
-    }
-    return false;
+    const maxLength = Math.max(older.length, newer.length);
+    older = leftPadZero(older, maxLength);
+    newer = leftPadZero(newer, maxLength);
+
+    return older < newer;
   }
 }
 
@@ -68,4 +53,11 @@ export function vsReader(
   stringToB64: (data: string) => string
 ): VersionStamper {
   return new VersionStamper(stringToB64);
+}
+
+function leftPadZero(input: string, desiredLen: number) {
+  if (input.length < desiredLen) {
+    return '\x00'.repeat(desiredLen - input.length) + input;
+  }
+  return input;
 }
