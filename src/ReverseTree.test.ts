@@ -2,7 +2,7 @@ import { ReverseTree } from './ReverseTree';
 
 test('reverse tree can insert items', () => {
   const rt = new ReverseTree('me');
-  rt.insert('root', 'dogs');
+  rt.insert({ after: 'root', value: 'dogs', localOrAck: 'local' });
   expect(rt.toArray()).toEqual(['dogs']);
 });
 
@@ -34,7 +34,7 @@ test('reverse tree can insert lots of items', () => {
   const result: string[] = [];
   for (let i = 0; i < 20; i++) {
     result.splice(0, 0, `donut #${i}`);
-    rt.insert('root', `donut #${i}`);
+    rt.insert({ after: 'root', value: `donut #${i}`, localOrAck: 'local' });
   }
   expect(rt.toArray()).toEqual(result);
 });
@@ -43,13 +43,13 @@ test('reverse tree always returns the last id', () => {
   const rt = new ReverseTree('me');
 
   for (let i = 0; i < 20; i++) {
-    rt.insert('root', `${i}`);
+    rt.insert({ after: 'root', value: `${i}`, localOrAck: 'local' });
   }
 
   const arr = rt.toArray();
   //  later inserts after the root come first, so the last node in the array is
   //  the first that was inserted
-  expect(rt.nodes[`0:me`].value).toEqual(arr[arr.length - 1]);
+  expect(rt.nodes.get(`0:me`)!.value).toEqual(arr[arr.length - 1]);
 });
 
 test('reverse tree doesnt interweave', () => {
@@ -58,7 +58,12 @@ test('reverse tree doesnt interweave', () => {
   function insertFromActor(rt: ReverseTree, actor: string, word: string) {
     let after = 'root';
     for (let i = 0; i < word.length; i++) {
-      after = rt.insert(after, word[i], `${i}:${actor}`);
+      after = rt.insert({
+        after,
+        value: word[i],
+        externalNewID: `${i}:${actor}`,
+        localOrAck: { ack: false, versionstamp: btoa(`${i}`) },
+      });
     }
   }
 
@@ -73,28 +78,32 @@ test('reverse tree doesnt interweave', () => {
 
 test('reverse tree can delete items', () => {
   const rt = new ReverseTree('me');
-  const first = rt.insert('root', 'dog');
-  const second = rt.insert(first, 'cat');
-  const third = rt.insert(second, 'bird');
+  const first = rt.insert({ after: 'root', value: 'dog', localOrAck: 'local' });
+  const second = rt.insert({ after: first, value: 'cat', localOrAck: 'local' });
+  const third = rt.insert({
+    after: second,
+    value: 'bird',
+    localOrAck: 'local',
+  });
   expect(rt.toArray()).toEqual(['dog', 'cat', 'bird']);
 
-  rt.delete(first);
+  rt.delete(first, 'local');
   expect(rt.toArray()).toEqual(['cat', 'bird']);
 
-  rt.delete(second);
+  rt.delete(second, 'local');
   expect(rt.toArray()).toEqual(['bird']);
 
-  rt.delete(third);
+  rt.delete(third, 'local');
   expect(rt.toArray()).toEqual([]);
 });
 
 test('can add items after a deleted item', () => {
   const rt = new ReverseTree('me');
-  const first = rt.insert('root', 'dog');
-  const second = rt.insert(first, 'cat');
+  const first = rt.insert({ after: 'root', value: 'dog', localOrAck: 'local' });
+  const second = rt.insert({ after: first, value: 'cat', localOrAck: 'local' });
 
-  rt.delete(second);
-  rt.insert(second, 'bird');
+  rt.delete(second, 'local');
+  rt.insert({ after: second, value: 'bird', localOrAck: 'local' });
 
   expect(rt.toArray()).toEqual(['dog', 'bird']);
 });

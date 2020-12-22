@@ -1,7 +1,42 @@
+/*
+    Map consistency model
+    `mput`: Last writer (highest versionstamp) wins. On a local put, we leave
+    the existing versionstamp so that newer writes from others will overwrite
+    it. The eventual versionstamped confirmation message of the local put
+    will establish what versionstamp it was assigned and must be greater than
+    the existing versionstamp. Note that acks of a value that was set locally
+    update the versionstamp but leave the value so that we don't revert to an
+    older value in the case of multiple updates happening locally before an
+    ack is received.
+    
+    `mdel`: Last deleter wins. Instead of just deleting the key, we store the
+    versionstamp of the delete (essentially a tombstone). This way, we can
+    compare the versionstamp of future `mput`s to know whether they should
+    un-delete the value or not. Tombstones are cleaned up after a short
+    amount of time as they only need to outlive messages in-flight from Room
+    Service.
+*/
+
 import { unescape, escape } from './escape';
 import { DocumentCheckpoint } from './types';
+import { isOlderVS } from './versionstamp';
 
-export type MapStore<T> = { [key: string]: number | string | object | T };
+export type MapStore<T> = {
+  //  deletedAt is stored in tombstoneCleanup array so that oldest entries are
+  //  checked first. It is also stored in the kv map to handle the delete -> set
+  //  -> delete case, otherwise the cleanup from the first delete will
+  //  prematurely clean up the second delete.
+  kv: Map<
+    string,
+    {
+      value?: number | string | object | T;
+      versionstamp?: string;
+      deletedAt?: number;
+      local: boolean;
+    }
+  >;
+  tombstoneCleanup: Array<{ key: string; deletedAt: number }>;
+};
 export type MapMeta = {
   mapID: string;
   docID: string;
@@ -18,9 +53,8 @@ function importFromRawCheckpoint<T>(
   rawCheckpoint: DocumentCheckpoint,
   mapID: string
 ) {
-  for (const key of Object.keys(store)) {
-    delete store[key];
-  }
+  store.kv.clear();
+  store.tombstoneCleanup = [];
 
   if (!rawCheckpoint.maps[mapID]) {
     return; // no import
@@ -28,7 +62,11 @@ function importFromRawCheckpoint<T>(
   for (let k in rawCheckpoint.maps[mapID]) {
     const val = rawCheckpoint.maps[mapID][k];
     if (typeof val === 'string') {
-      store[k] = unescape(val);
+      store.kv.set(k, {
+        value: unescape(val),
+        versionstamp: rawCheckpoint.vs,
+        local: false,
+      });
     }
   }
 }
@@ -51,34 +89,28 @@ function validateCommand(meta: MapMeta, cmd: string[]) {
   }
 }
 
+const MALFORMED = 'Malformed command ';
+
 /**
  * Applies a command to the in-memory store.
  * @param store
  * @param cmd A room service command
  */
-function applyCommand<T>(store: MapStore<T>, cmd: string[]) {
-  const keyword = cmd[0];
+function applyCommand<T>(
+  store: MapStore<T>,
+  cmd: string[],
+  versionstamp: string,
+  ack: boolean
+) {
+  tombstoneCleanup(store);
 
-  const MALFORMED = 'Malformed command ';
+  const keyword = cmd[0];
 
   switch (keyword) {
     case 'mput':
-      if (cmd.length !== 5) {
-        console.error(MALFORMED, cmd);
-        break;
-      }
-      const putKey = cmd[3];
-      const putVal = cmd[4];
-      store[putKey] = unescape(putVal);
-      break;
+      return applyPut(store, cmd, versionstamp, ack);
     case 'mdel':
-      if (cmd.length !== 4) {
-        console.error(MALFORMED, cmd);
-        break;
-      }
-      const delKey = cmd[3];
-      delete store[delKey];
-      break;
+      return applyDelete(store, cmd, versionstamp, ack);
     // These are technically "valid" in some places
     // but can be ignored here
     case 'mcreate':
@@ -86,6 +118,80 @@ function applyCommand<T>(store: MapStore<T>, cmd: string[]) {
     default:
       throw new Error('Unexpected command keyword: ' + keyword);
   }
+}
+
+function applyPut<T>(
+  store: MapStore<T>,
+  cmd: string[],
+  versionstamp: string,
+  ack: boolean
+) {
+  if (cmd.length !== 5) {
+    console.error(MALFORMED, cmd);
+    return;
+  }
+  const putKey = cmd[3];
+  const putVal = cmd[4];
+
+  const existing = store.kv.get(putKey);
+  const existingPutVersionstamp = existing?.versionstamp;
+  if (
+    existingPutVersionstamp &&
+    isOlderVS(versionstamp, existingPutVersionstamp)
+  ) {
+    return;
+  }
+
+  const isPutLocalAck = (existing?.local ?? false) && ack;
+  if (isPutLocalAck) {
+    existing!.versionstamp = versionstamp;
+    return;
+  }
+
+  store.kv.set(putKey, {
+    value: unescape(putVal),
+    versionstamp,
+    local: false,
+  });
+}
+
+function applyDelete<T>(
+  store: MapStore<T>,
+  cmd: string[],
+  versionstamp: string,
+  ack: boolean
+) {
+  if (cmd.length !== 4) {
+    console.error(MALFORMED, cmd);
+    return;
+  }
+  const delKey = cmd[3];
+  const existingObj = store.kv.get(delKey);
+  const existingDelVersionstamp = existingObj?.versionstamp;
+  if (
+    existingDelVersionstamp &&
+    isOlderVS(versionstamp, existingDelVersionstamp)
+  ) {
+    return;
+  }
+  const now = performance.now();
+
+  const isLocalAck = (existingObj?.local ?? false) && ack;
+  if (isLocalAck) {
+    existingObj!.versionstamp = versionstamp;
+    return;
+  }
+
+  store.kv.set(delKey, {
+    value: undefined,
+    versionstamp,
+    deletedAt: now,
+    local: false,
+  });
+  store.tombstoneCleanup.push({
+    key: delKey,
+    deletedAt: now,
+  });
 }
 
 /**
@@ -105,7 +211,17 @@ function runSet<T>(
   const escaped = escape(value as any);
 
   // Local
-  store[key] = value;
+  if (store.kv.has(key)) {
+    //  inherit old versionstamp
+    store.kv.get(key)!.value = value;
+    store.kv.get(key)!.local = true;
+  } else {
+    store.kv.set(key, {
+      value,
+      versionstamp: undefined,
+      local: true,
+    });
+  }
 
   // Remote
   return ['mput', meta.docID, meta.mapID, key, escaped];
@@ -123,8 +239,20 @@ function runDelete<T>(
   meta: MapMeta,
   key: string
 ): string[] {
-  // local
-  delete store[key];
+  tombstoneCleanup(store);
+
+  const now = performance.now();
+  const existingVS = store.kv.get(key)?.versionstamp;
+  store.kv.set(key, {
+    value: undefined,
+    versionstamp: existingVS,
+    deletedAt: now,
+    local: true,
+  });
+  store.tombstoneCleanup.push({
+    key: key,
+    deletedAt: now,
+  });
 
   // remote
   return ['mdel', meta.docID, meta.mapID, key];
@@ -149,8 +277,38 @@ function newMap<T extends any>(
       docID,
       mapID,
     },
-    store: {},
+    store: {
+      kv: new Map(),
+      tombstoneCleanup: [],
+    },
   };
+}
+
+const TOMBSTONE_TTL_MS: number = (() => {
+  if (process.env.NODE_ENV === 'test') {
+    return 0;
+  }
+  return 10 * 1000;
+})();
+
+function tombstoneCleanup<T>(store: MapStore<T>) {
+  const now = performance.now();
+  while (
+    store.tombstoneCleanup.length > 0 &&
+    now >= store.tombstoneCleanup[0].deletedAt + TOMBSTONE_TTL_MS
+  ) {
+    const key = store.tombstoneCleanup.shift()!.key;
+    const entry = store.kv.get(key);
+    if (!entry) {
+      continue;
+    }
+    if (
+      entry.value === undefined &&
+      now >= (entry.deletedAt ?? 0) + TOMBSTONE_TTL_MS
+    ) {
+      store.kv.delete(key);
+    }
+  }
 }
 
 export const MapInterpreter = {

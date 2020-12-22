@@ -1,6 +1,21 @@
+/*
+
+    List consistency model
+    `lput`, `ldel`: Values of nodes are treated like a map (last write wins), including a
+    possible tombstone value for deleted nodes.  For now tombstones are not cleaned up.
+    
+    `lins`: Every node id is prefixed with this client's random identifier
+    (could be thought of as a session identifier). Note that this is not the
+    actorID as there could be multiple active sessions for the same actor.
+    Using the session identifier makes this client's inserts independent from
+    all others, but the versionstamp is still important for relative ordering
+    of lput and lins commands.
+*/
+
 import { unescape, escape } from './escape';
 import { ReverseTree, parseItemID } from './ReverseTree';
 import { DocumentCheckpoint, Tombstone } from './types';
+import { generateID } from './util';
 
 export type ListStore = {
   rt: ReverseTree;
@@ -13,8 +28,7 @@ export type ListMeta = {
 
 function newList(
   docID: string,
-  listID: string,
-  actor: string
+  listID: string
 ): {
   store: ListStore;
   meta: ListMeta;
@@ -23,7 +37,7 @@ function newList(
   return {
     store: {
       itemIDs: [],
-      rt: new ReverseTree(actor),
+      rt: new ReverseTree(generateID()),
     },
     meta: {
       docID,
@@ -85,7 +99,12 @@ function validateCommand(meta: ListMeta, cmd: string[]) {
  * @param store
  * @param cmd A room service command
  */
-function applyCommand(store: ListStore, cmd: string[]) {
+function applyCommand(
+  store: ListStore,
+  cmd: string[],
+  versionstamp: string,
+  ack: boolean
+) {
   const keyword = cmd[0];
 
   switch (keyword) {
@@ -98,16 +117,21 @@ function applyCommand(store: ListStore, cmd: string[]) {
         0,
         insItemID
       );
-      store.rt.insert(insAfter, insValue, insItemID);
+      store.rt.insert({
+        after: insAfter,
+        value: insValue,
+        externalNewID: insItemID,
+        localOrAck: { ack, versionstamp },
+      });
       break;
     case 'lput':
       const putItemID = cmd[3];
       const putVal = cmd[4];
-      store.rt.put(putItemID, putVal);
+      store.rt.put(putItemID, putVal, { ack, versionstamp });
       break;
     case 'ldel':
       const delItemID = cmd[3];
-      store.rt.delete(delItemID);
+      store.rt.delete(delItemID, { ack, versionstamp });
       store.itemIDs.splice(
         store.itemIDs.findIndex(f => f === delItemID),
         1
@@ -152,8 +176,7 @@ function runSet<T extends any>(
   }
   const escaped = escape(val as any);
 
-  // Local
-  store.rt.put(itemID, escaped);
+  store.rt.put(itemID, escaped, 'local');
 
   // Remote
   return ['lput', meta.docID, meta.listID, itemID, escaped];
@@ -173,8 +196,7 @@ function runDelete(
     return false;
   }
 
-  // Local
-  store.rt.delete(itemID);
+  store.rt.delete(itemID, 'local');
   store.itemIDs.splice(index, 1);
 
   // Remote
@@ -202,8 +224,12 @@ function runInsertAt<T extends any>(
   }
   const escaped = escape(val as any);
 
-  // Local
-  const itemID = store.rt.insert(afterID, escaped);
+  const itemID = store.rt.insert({
+    after: afterID,
+    value: escaped,
+    externalNewID: undefined,
+    localOrAck: 'local',
+  });
   store.itemIDs.splice(index, 0, itemID);
 
   return ['lins', meta.docID, meta.listID, afterID, itemID, escaped];
@@ -227,7 +253,12 @@ function runPushOne<T extends any>(
   const escaped = escape(val as any);
 
   // Local
-  const itemID = store.rt.insert(lastID, escaped);
+  const itemID = store.rt.insert({
+    after: lastID,
+    value: escaped,
+    externalNewID: undefined,
+    localOrAck: 'local',
+  });
   store.itemIDs.push(itemID);
 
   // Remote

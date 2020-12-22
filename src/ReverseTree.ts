@@ -1,10 +1,13 @@
 import { NodeValue, DocumentCheckpoint } from './types';
 import invariant from 'tiny-invariant';
+import { isOlderVS } from './versionstamp';
 
 interface Node {
-  after: string;
+  after?: string;
   value: NodeValue;
   id: string;
+  versionstamp?: string;
+  local: boolean;
 }
 
 interface IdValue {
@@ -28,37 +31,31 @@ export function parseItemID(
   return index + ':' + checkpoint.actors[parseInt(a)];
 }
 
+export type LocalOrAck = { ack: boolean; versionstamp: string } | 'local';
+
 /**
  * A Reverse Tree is one where the children point to the
  * parents, instead of the otherway around.
  *
  * We use a reverse tree because the "insert" operation
- * can be done in paralell.
+ * can be done in parallel.
  */
 export class ReverseTree {
-  // an id of the user who's making operations
-  private actor: string;
+  //  a token unique to this session used to create node IDs
+  session: string;
 
-  // The number of operations used by this tree
-  private count: number = 0;
+  nodes: Map<string, Node> = new Map();
 
-  log: Node[];
-  nodes: { [key: string]: Node };
-
-  constructor(actor: string) {
-    this.actor = actor;
-    this.nodes = {};
-    this.log = [];
+  constructor(session: string) {
+    this.session = session;
   }
 
   import(actor: string, checkpoint: DocumentCheckpoint, listID: string) {
     invariant(checkpoint);
 
-    this.actor = actor;
+    this.session = actor;
 
-    this.log = [];
-    this.nodes = {};
-    this.count = 0;
+    this.nodes = new Map();
 
     const list = checkpoint.lists[listID];
     const afters = list.afters || [];
@@ -71,58 +68,98 @@ export class ReverseTree {
         after: parseItemID(checkpoint, afters[i]),
         id: parseItemID(checkpoint, ids[i]),
         value: values[i],
+        versionstamp: checkpoint.vs,
+        local: false,
       };
-      this.nodes[node.id] = node;
-      this.log.push(node);
+      this.nodes.set(node.id, node);
     }
-
-    this.count = this.log.length;
   }
 
   get(itemID: string): NodeValue | undefined {
-    if (this.nodes[itemID]) {
-      return this.nodes[itemID].value;
-    }
-    return undefined;
+    return this.nodes.get(itemID)?.value;
   }
 
-  insert(
-    after: 'root' | string,
-    value: NodeValue,
-    externalNewID?: string
-  ): string {
-    invariant(this.log);
+  insert(params: {
+    after: 'root' | string;
+    value: NodeValue;
+    externalNewID?: string;
+    localOrAck: LocalOrAck;
+  }): string {
+    const { after, value, externalNewID, localOrAck } = params;
     let id = externalNewID;
     if (!id) {
-      id = `${this.count}:${this.actor}`;
+      //  TODO: with list GC implemented, count should be incremented higher than
+      //  any node id instead of based on current number of active nodes
+      id = `${this.nodes.size}:${this.session}`;
     }
-    this.count++;
+    if (this.nodes.has(id)) {
+      if (this.nodes.get(id)?.after === undefined) {
+        this.nodes.get(id)!.after = after;
+      }
+      this.put(id, value, localOrAck);
+      return id;
+    }
 
     const node: Node = {
       after,
       value,
       id,
+      local: localOrAck === 'local',
+      versionstamp:
+        (typeof localOrAck === 'object' && localOrAck.versionstamp) ||
+        undefined,
     };
-    this.nodes[id] = node;
-    this.log.push(node);
+    this.nodes.set(id, node);
     return id;
   }
 
-  put(itemID: string, value: NodeValue) {
-    if (!!this.nodes[itemID]) {
-      this.nodes[itemID].value = value;
+  put(itemID: string, value: NodeValue, localOrAck: LocalOrAck) {
+    const existing = this.nodes.get(itemID);
+    if (!existing) {
+      //  handle out of order lput/ldel and lins
+      this.nodes.set(itemID, {
+        after: undefined,
+        value,
+        versionstamp:
+          (typeof localOrAck === 'object' && localOrAck.versionstamp) ||
+          undefined,
+        id: itemID,
+        local: localOrAck === 'local',
+      });
+      return;
     }
+
+    if (localOrAck === 'local') {
+      existing.value = value;
+      existing.local = true;
+      return;
+    }
+
+    const versionstamp = localOrAck.versionstamp;
+    if (
+      versionstamp &&
+      existing.versionstamp &&
+      isOlderVS(versionstamp, existing.versionstamp)
+    ) {
+      return;
+    }
+
+    const isLocalAck = existing.local && localOrAck.ack;
+    if (isLocalAck) {
+      //  ignore value
+    } else {
+      existing.value = value;
+      existing.local = false;
+    }
+    existing.versionstamp = versionstamp;
   }
 
   has(itemID: string) {
-    return !!this.nodes[itemID];
+    return this.nodes.has(itemID);
   }
 
-  delete(itemID: string) {
-    if (!this.nodes[itemID]) return;
-    this.nodes[itemID].value = {
-      t: '',
-    };
+  delete(itemID: string, localOrAck: LocalOrAck) {
+    this.put(itemID, { t: '' }, localOrAck);
   }
 
   get length() {
@@ -133,7 +170,10 @@ export class ReverseTree {
     const childrenById = new Map<string, Array<string>>();
     const valueById = new Map<string, NodeValue>();
 
-    for (const node of this.log) {
+    for (const node of Array.from(this.nodes.values())) {
+      if (node.after === undefined) {
+        continue;
+      }
       if (!childrenById.has(node.after)) {
         childrenById.set(node.after, []);
       }
@@ -162,7 +202,7 @@ export class ReverseTree {
   }
 
   lastID(): string {
-    if (this.log.length === 0) {
+    if (this.nodes.size === 0) {
       return 'root';
     }
 
