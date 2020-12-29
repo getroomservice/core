@@ -49,13 +49,13 @@ function newList(
 
 /**
  * Populates the store with the values given from a bootstrap'd
- * checkpoint, typically gotten from Room Service's API.
+ * checkpoint, typically from Room Service's API.
  * @param store
  * @param rawCheckpoint
  */
 function importFromRawCheckpoint(
   store: ListStore,
-  actor: string,
+  _actor: string,
   rawCheckpoint: DocumentCheckpoint,
   listID: string
 ) {
@@ -64,7 +64,7 @@ function importFromRawCheckpoint(
     return; // no import
   }
 
-  store.rt.import(actor, rawCheckpoint, listID);
+  store.rt.import(rawCheckpoint, listID);
   const list = rawCheckpoint.lists[listID];
   const ids = list.ids || [];
   for (let i = 0; i < ids.length; i++) {

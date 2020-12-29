@@ -50,10 +50,8 @@ export class ReverseTree {
     this.session = session;
   }
 
-  import(actor: string, checkpoint: DocumentCheckpoint, listID: string) {
+  import(checkpoint: DocumentCheckpoint, listID: string) {
     invariant(checkpoint);
-
-    this.session = actor;
 
     this.nodes = new Map();
 

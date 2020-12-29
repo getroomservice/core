@@ -9,7 +9,6 @@ test('reverse tree can insert items', () => {
 test('reverse tree skips unreceived dependencies', () => {
   const rt = new ReverseTree('me');
   rt.import(
-    'me',
     {
       id: 'doc',
       actors: ['me', 'you', 'foo'],
